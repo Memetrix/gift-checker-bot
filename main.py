@@ -25,8 +25,6 @@ except FileNotFoundError:
 # === Сборка raw TL-запроса вручную ===
 async def get_star_gifts_raw():
     user = InputUserSelf()
-    await client._sender.ensure_connected()
-
     b = BytesIO()
     b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af
 
@@ -63,7 +61,7 @@ async def check(event):
         await event.respond("Ошибка при проверке подарков. Возможно, они скрыты.")
         return
 
-    # Пытаемся извлечь titles из байтов (грязный способ, до десериализации)
+    # Грязный способ: ищем нужные ключевые слова в ответе
     raw = result.getvalue()
     raw_text = raw.decode('utf-8', errors='ignore').lower()
 
@@ -83,7 +81,7 @@ async def check(event):
             invite_link = r.json()["result"]["invite_link"]
             await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")
         except Exception as e:
-            print(f"Ошибка ссылки: {e}")
+            print(f"Ошибка создания ссылки: {e}")
             await event.respond("✅ Подарки найдены, но не удалось создать ссылку.")
     else:
         await event.respond("❌ Подарков недостаточно или они скрыты. Попробуй позже или купи на @mrkt.")
