@@ -19,9 +19,12 @@ except FileNotFoundError:
     approved_users = set()
 
 # === Заглушка (не будет работать без серверной поддержки метода) ===
-from telethon.tl.tlobject import TLObject
+# TLRequest is used for invoking raw API methods. Since the method below
+# is only a placeholder, subclassing TLRequest gives a clearer error when
+# it gets called.
+from telethon.tl.tlobject import TLRequest
 
-class GetUserStarGiftsRequest(TLObject):
+class GetUserStarGiftsRequest(TLRequest):
     QUALNAME = "payments.getUserStarGifts"
     __slots__ = ["user_id", "offset", "limit"]
 
@@ -35,8 +38,15 @@ class GetUserStarGiftsRequest(TLObject):
             "_": self.QUALNAME,
             "user_id": self.user_id,
             "offset": self.offset,
-            "limit": self.limit
+            "limit": self.limit,
         }
+
+    @staticmethod
+    def read(b, *args):
+        raise NotImplementedError("payments.getUserStarGifts is not supported")
+
+    def write(self):
+        raise NotImplementedError("payments.getUserStarGifts is not supported")
 
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
