@@ -1,3 +1,1 @@
-# Gift Checker Bot
-
-Бот для проверки подарков в Telegram.
+# Telegram Gift Checker Bot (ручная реализация GetUserStarGiftsRequest)

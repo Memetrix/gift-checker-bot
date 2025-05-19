@@ -1,14 +1,17 @@
 import asyncio
-from telethon import TelegramClient, events, functions, types, Button
-import json, requests, os
+from telethon import TelegramClient, events, types, Button
+from telethon.tl.custom import Button
+from telethon.tl.types import InputUserSelf
+from telethon.tl import TLObject
+import json, os, requests
 
+# === Config ===
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 bot_token = os.getenv("BOT_TOKEN")
 group_id = int(os.getenv("GROUP_ID"))
 
-client = TelegramClient("bot_session", api_id, api_hash)
-client.start(bot_token=bot_token)
+client = TelegramClient("bot_session", api_id, api_hash).start(bot_token=bot_token)
 
 approved_users = set()
 try:
@@ -17,13 +20,33 @@ try:
 except FileNotFoundError:
     approved_users = set()
 
+class GetUserStarGiftsRequest(TLObject):
+    QUALNAME = "payments.getUserStarGifts"
+    __slots__ = ["user_id", "offset", "limit"]
+
+    def __init__(self, *, user_id, offset, limit):
+        self.user_id = user_id
+        self.offset = offset
+        self.limit = limit
+
+    def to_dict(self):
+        return {
+            "_": self.QUALNAME,
+            "user_id": self.user_id,
+            "offset": self.offset,
+            "limit": self.limit
+        }
+
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     user = await event.get_sender()
     welcome = (
-        f"Привет, {user.first_name}!\n\n"
-        "Этот бот проверяет, есть ли у тебя 6 подарков Jack-in-the-Box модели Knockout. "
-        "Нажми кнопку ниже, чтобы проверить."
+        f"Привет, {user.first_name}!
+
+"
+        "Я проверю, есть ли у тебя 6 подарков Jack-in-the-Box модели Knockout.
+"
+        "Нажми кнопку ниже:"
     )
     await event.respond(welcome, buttons=[Button.inline("🔍 Проверить подарки", b"check")])
 
@@ -34,20 +57,20 @@ async def check(event):
 
     user_id = event.sender_id
     try:
-        result = await client(functions.payments.GetUserStarGiftsRequest(
-            user_id=await event.get_input_sender(),
+        gifts = await client(GetUserStarGiftsRequest(
+            user_id=InputUserSelf(),
             offset="",
             limit=100
         ))
     except Exception as e:
-        await event.respond("Ошибка при получении данных. Возможно, вы скрыли подарки.")
-        print(e)
+        print(f"Ошибка при получении подарков: {e}")
+        await event.respond("Ошибка при проверке подарков. Возможно, они скрыты.")
         return
 
     count = 0
-    for gift in result.gifts:
+    for g in gifts.gifts:
         try:
-            title = getattr(gift.gift, "title", "").lower()
+            title = getattr(g.gift, "title", "").lower()
             if "jack" in title and "knockout" in title:
                 count += 1
         except:
@@ -59,49 +82,14 @@ async def check(event):
             with open("approved_users.json", "w") as f:
                 json.dump(list(approved_users), f)
         try:
-            r = requests.get(
-                f"https://api.telegram.org/bot{bot_token}/createChatInviteLink",
-                params={"chat_id": group_id, "member_limit": 1}
-            )
+            r = requests.get(f"https://api.telegram.org/bot{bot_token}/createChatInviteLink",
+                             params={"chat_id": group_id, "member_limit": 1})
             invite_link = r.json()["result"]["invite_link"]
             await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")
-        except Exception as e:
-            print(e)
+        except:
             await event.respond("✅ Подарки найдены, но не удалось создать ссылку.")
     else:
-        await event.respond("❌ У тебя недостаточно подарков или они скрыты. Попробуй позже или купи на @mrkt.")
+        await event.respond("❌ Подарков недостаточно или они скрыты. Попробуй позже или купи на @mrkt.")
 
-async def periodic_check():
-    while True:
-        for user_id in list(approved_users):
-            try:
-                result = await client(functions.payments.GetUserStarGiftsRequest(
-                    user_id=await client.get_input_entity(user_id),
-                    offset="",
-                    limit=100
-                ))
-                count = 0
-                for gift in result.gifts:
-                    title = getattr(gift.gift, "title", "").lower()
-                    if "jack" in title and "knockout" in title:
-                        count += 1
-                if count < 6:
-                    requests.get(
-                        f"https://api.telegram.org/bot{bot_token}/banChatMember",
-                        params={"chat_id": group_id, "user_id": user_id}
-                    )
-                    requests.get(
-                        f"https://api.telegram.org/bot{bot_token}/unbanChatMember",
-                        params={"chat_id": group_id, "user_id": user_id}
-                    )
-                    approved_users.remove(user_id)
-                    with open("approved_users.json", "w") as f:
-                        json.dump(list(approved_users), f)
-                    await client.send_message(user_id, "🚫 У тебя больше нет нужных подарков, доступ отозван.")
-            except Exception as e:
-                print(f"Ошибка проверки пользователя {user_id}: {e}")
-        await asyncio.sleep(86400)
-
-client.loop.create_task(periodic_check())
 print("Бот запущен.")
 client.run_until_disconnected()

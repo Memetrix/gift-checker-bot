@@ -1,2 +1,2 @@
-git+https://github.com/LonamiWebs/Telethon.git@v1
+telethon==1.40.0
 requests
