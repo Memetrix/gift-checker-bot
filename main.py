@@ -6,6 +6,7 @@ from io import BytesIO
 
 from telethon import TelegramClient, events, Button
 from telethon.tl.types import InputUserSelf
+from telethon.tl.tlobject import TLObject
 
 # === Конфигурация ===
 api_id = int(os.getenv("API_ID"))
@@ -22,24 +23,29 @@ try:
 except FileNotFoundError:
     approved_users = set()
 
-# === Кастомный TL-запрос через __bytes__ без BinaryWriter ===
-class GetUserStarGiftsRequest:
-    CONSTRUCTOR_ID = 0xf8b036af  # payments.getUserStarGifts
+# === Кастомный TL-запрос
+class GetUserStarGiftsRequest(TLObject):
+    QUALNAME = "payments.getUserStarGifts"
+    __slots__ = ["user_id", "offset", "limit"]
 
-    def __init__(self, user_id, offset, limit):
+    def __init__(self, *, user_id, offset, limit):
         self.user_id = user_id
         self.offset = offset
         self.limit = limit
 
-    def __bytes__(self):
+    def write(self):
         b = BytesIO()
-        b.write(self.CONSTRUCTOR_ID.to_bytes(4, 'little', signed=False))
-        b.write(bytes(self.user_id))  # Telethon TLObject поддерживает bytes(self.user_id)
-        b.write(b'\x00')  # offset: пустая строка
+        b.write(b'\xaf\x36\xb0\xf8')  # Constructor ID
+        self.user_id.write(b)
+        b.write(b'\x00')  # offset: empty string
         b.write(self.limit.to_bytes(4, 'little', signed=True))
         return b.getvalue()
 
-# === Команда /start ===
+    @staticmethod
+    def read(b):
+        pass  # необязательно, мы не читаем результат напрямую
+
+# === Команда /start
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     user = await event.get_sender()
@@ -50,7 +56,7 @@ async def start(event):
     )
     await event.respond(welcome, buttons=[Button.inline("🔍 Проверить подарки", b"check")])
 
-# === Проверка подарков ===
+# === Кнопка проверки
 @client.on(events.CallbackQuery)
 async def check(event):
     if event.data != b"check":
@@ -59,18 +65,21 @@ async def check(event):
     user_id = event.sender_id
 
     try:
-        input_user = InputUserSelf()
-        request = GetUserStarGiftsRequest(input_user, "", 100)
-        result = await client._invoke(request)
+        gifts = await client._invoke(GetUserStarGiftsRequest(
+            user_id=InputUserSelf(),
+            offset="",
+            limit=100
+        ))
     except Exception as e:
         print(f"Ошибка при получении подарков: {e}")
         await event.respond("Ошибка при проверке подарков. Возможно, они скрыты.")
         return
 
+    # Грубый парсинг заголовков
     try:
-        raw = result.getvalue()
+        raw = gifts.getvalue()
         raw_text = raw.decode('utf-8', errors='ignore').lower()
-    except Exception:
+    except:
         await event.respond("❌ Не удалось разобрать ответ.")
         return
 
