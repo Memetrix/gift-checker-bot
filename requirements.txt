@@ -1,2 +1,2 @@
-git+https://github.com/LonamiWebs/Telethon.git
+git+https://github.com/LonamiWebs/Telethon.git@v1
 requests
