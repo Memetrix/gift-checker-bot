@@ -5,6 +5,7 @@ import requests
 from io import BytesIO
 
 from telethon import TelegramClient, events, Button
+from telethon.tl.tlobject import TLObject
 from telethon.tl.types import InputUserSelf
 
 # === Конфигурация ===
@@ -27,7 +28,7 @@ async def get_star_gifts_raw():
     b = BytesIO()
     b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af (payments.getUserStarGifts)
 
-    InputUserSelf().write(b)  # сериализация самого бота
+    TLObject.write(InputUserSelf(), b)  # правильная сериализация
     b.write(b'\x00')  # offset: пустая строка
     b.write((100).to_bytes(4, 'little'))  # limit: int32
 
