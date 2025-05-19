@@ -8,6 +8,9 @@ from telethon import TelegramClient, events, Button
 from telethon.tl.types import InputUserSelf
 from telethon.tl.tlobject import TLObject
 
+import telethon
+print("Telethon version:", telethon.__version__)
+
 # === Конфигурация ===
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
