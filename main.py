@@ -23,9 +23,11 @@ except FileNotFoundError:
 
 # === Сборка raw TL-запроса вручную ===
 async def get_star_gifts_raw():
-    user = await client.get_input_entity('me')  # сериализуемый InputUser
+    me = await client.get_me()
+    user = me.to_input_user()  # строго InputUser, сериализуемый
+
     b = BytesIO()
-    b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af (payments.getUserStarGifts)
+    b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af
 
     user.write(b)  # сериализация InputUser
     b.write(b'\x00')  # offset: пустая строка
