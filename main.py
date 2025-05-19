@@ -22,20 +22,21 @@ try:
 except FileNotFoundError:
     approved_users = set()
 
-# === Ручной raw TL-запрос ===
+# === Raw TL-запрос вручную ===
 async def get_star_gifts_raw():
-    b = BytesIO()
-    b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af (payments.getUserStarGifts)
-
     user = InputUserSelf()
-    user.write(b)  # 💡 правильный способ — метод экземпляра
-    b.write(b'\x00')  # offset: пустая строка
-    b.write((100).to_bytes(4, 'little'))  # limit: int32
+    payload = BytesIO()
 
-    await client._sender.send(b.getvalue())
+    # method_id = 0xf8b036af
+    payload.write(b'\xaf\x36\xb0\xf8')
+    payload.write(client._tlmessage_serializer.serialize(user))  # <- ключевая строка
+    payload.write(b'\x00')  # offset
+    payload.write((100).to_bytes(4, 'little'))  # limit
+
+    await client._sender.send(payload.getvalue())
     return await client._sender.receive()
 
-# === Обработка команды /start ===
+# === Команда /start ===
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     user = await event.get_sender()
@@ -46,7 +47,7 @@ async def start(event):
     )
     await event.respond(welcome, buttons=[Button.inline("🔍 Проверить подарки", b"check")])
 
-# === Обработка кнопки ===
+# === Кнопка "Проверить подарки" ===
 @client.on(events.CallbackQuery)
 async def check(event):
     if event.data != b"check":
@@ -80,7 +81,7 @@ async def check(event):
             invite_link = r.json()["result"]["invite_link"]
             await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")
         except Exception as e:
-            print(f"Ошибка создания ссылки: {e}")
+            print(f"Ошибка ссылки: {e}")
             await event.respond("✅ Подарки найдены, но не удалось создать ссылку.")
     else:
         await event.respond("❌ Подарков недостаточно или они скрыты. Попробуй позже или купи на @mrkt.")
