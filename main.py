@@ -5,7 +5,6 @@ import requests
 from io import BytesIO
 
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import InputUserSelf
 
 # === Конфигурация ===
 api_id = int(os.getenv("API_ID"))
@@ -24,12 +23,12 @@ except FileNotFoundError:
 
 # === Сборка raw TL-запроса вручную ===
 async def get_star_gifts_raw():
-    user = InputUserSelf()
+    user = await client.get_input_entity('me')  # сериализуемый InputUser
     b = BytesIO()
-    b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af
+    b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af (payments.getUserStarGifts)
 
-    user.write(b)                 # InputUserSelf
-    b.write(b'\x00')              # offset: пустая строка
+    user.write(b)  # сериализация InputUser
+    b.write(b'\x00')  # offset: пустая строка
     b.write((100).to_bytes(4, 'little'))  # limit: int32
 
     await client._sender.send(b.getvalue())
@@ -61,7 +60,6 @@ async def check(event):
         await event.respond("Ошибка при проверке подарков. Возможно, они скрыты.")
         return
 
-    # Грязный способ: ищем нужные ключевые слова в ответе
     raw = result.getvalue()
     raw_text = raw.decode('utf-8', errors='ignore').lower()
 
