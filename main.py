@@ -68,7 +68,7 @@ async def check(event):
     user_id = event.sender_id
 
     try:
-        gifts = await client._invoke(GetUserStarGiftsRequest(
+        gifts = await client.invoke(GetUserStarGiftsRequest(
             user_id=InputUserSelf(),
             offset="",
             limit=100
