@@ -5,7 +5,6 @@ import requests
 from io import BytesIO
 
 from telethon import TelegramClient, events, Button
-from telethon.tl.tlobject import TLObject
 from telethon.tl.types import InputUserSelf
 
 # === Конфигурация ===
@@ -23,12 +22,13 @@ try:
 except FileNotFoundError:
     approved_users = set()
 
-# === Сборка raw TL-запроса вручную ===
+# === Ручной raw TL-запрос ===
 async def get_star_gifts_raw():
     b = BytesIO()
     b.write(b'\xaf\x36\xb0\xf8')  # method_id = 0xf8b036af (payments.getUserStarGifts)
 
-    TLObject.write(InputUserSelf(), b)  # правильная сериализация
+    user = InputUserSelf()
+    user.write(b)  # 💡 правильный способ — метод экземпляра
     b.write(b'\x00')  # offset: пустая строка
     b.write((100).to_bytes(4, 'little'))  # limit: int32
 
