@@ -6,7 +6,6 @@ from io import BytesIO
 
 from telethon import TelegramClient, events, Button
 from telethon.tl.types import InputUserSelf
-from telethon.extensions import BinaryWriter
 
 # === Конфигурация ===
 api_id = int(os.getenv("API_ID"))
@@ -23,7 +22,7 @@ try:
 except FileNotFoundError:
     approved_users = set()
 
-# === Кастомный TL-запрос ===
+# === Кастомный TL-запрос через __bytes__ без BinaryWriter ===
 class GetUserStarGiftsRequest:
     CONSTRUCTOR_ID = 0xf8b036af  # payments.getUserStarGifts
 
@@ -33,11 +32,11 @@ class GetUserStarGiftsRequest:
         self.limit = limit
 
     def __bytes__(self):
-        b = BinaryWriter(BytesIO())
-        b.write_int(self.CONSTRUCTOR_ID, signed=False)
-        b.write(self.user_id)
-        b.write_string(self.offset)
-        b.write_int(self.limit)
+        b = BytesIO()
+        b.write(self.CONSTRUCTOR_ID.to_bytes(4, 'little', signed=False))
+        b.write(bytes(self.user_id))  # Telethon TLObject поддерживает bytes(self.user_id)
+        b.write(b'\x00')  # offset: пустая строка
+        b.write(self.limit.to_bytes(4, 'little', signed=True))
         return b.getvalue()
 
 # === Команда /start ===
@@ -51,7 +50,7 @@ async def start(event):
     )
     await event.respond(welcome, buttons=[Button.inline("🔍 Проверить подарки", b"check")])
 
-# === Кнопка проверки ===
+# === Проверка подарков ===
 @client.on(events.CallbackQuery)
 async def check(event):
     if event.data != b"check":
@@ -61,15 +60,15 @@ async def check(event):
 
     try:
         input_user = InputUserSelf()
-        req = GetUserStarGiftsRequest(user_id=input_user, offset="", limit=100)
-        response = await client._invoke(req)
+        request = GetUserStarGiftsRequest(input_user, "", 100)
+        result = await client._invoke(request)
     except Exception as e:
         print(f"Ошибка при получении подарков: {e}")
         await event.respond("Ошибка при проверке подарков. Возможно, они скрыты.")
         return
 
     try:
-        raw = response.getvalue()
+        raw = result.getvalue()
         raw_text = raw.decode('utf-8', errors='ignore').lower()
     except Exception:
         await event.respond("❌ Не удалось разобрать ответ.")
@@ -91,7 +90,7 @@ async def check(event):
             invite_link = r.json()["result"]["invite_link"]
             await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")
         except Exception as e:
-            print(f"Ошибка создания ссылки: {e}")
+            print(f"Ошибка ссылки: {e}")
             await event.respond("✅ Подарки найдены, но не удалось создать ссылку.")
     else:
         await event.respond("❌ Подарков недостаточно или они скрыты. Попробуй позже или купи на @mrkt.")
