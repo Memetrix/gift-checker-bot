@@ -1,7 +1,6 @@
 import asyncio
-from telethon import TelegramClient, events, types, Button
+from telethon import TelegramClient, events, Button
 from telethon.tl.types import InputUserSelf
-from telethon.tl.tlrequest import TLRequest
 import json, os, requests
 
 # === Config ===
@@ -19,7 +18,10 @@ try:
 except FileNotFoundError:
     approved_users = set()
 
-class GetUserStarGiftsRequest(TLRequest):
+# === Заглушка (не будет работать без серверной поддержки метода) ===
+from telethon.tl.tlobject import TLObject
+
+class GetUserStarGiftsRequest(TLObject):
     QUALNAME = "payments.getUserStarGifts"
     __slots__ = ["user_id", "offset", "limit"]
 
@@ -40,11 +42,8 @@ class GetUserStarGiftsRequest(TLRequest):
 async def start(event):
     user = await event.get_sender()
     welcome = (
-        f"Привет, {user.first_name}!
-
-"
-        "Я проверю, есть ли у тебя 6 подарков Jack-in-the-Box модели Knockout.
-"
+        f"Привет, {user.first_name}!\n\n"
+        "Я проверю, есть ли у тебя 6 подарков Jack-in-the-Box модели Knockout.\n"
         "Нажми кнопку ниже:"
     )
     await event.respond(welcome, buttons=[Button.inline("🔍 Проверить подарки", b"check")])
@@ -66,8 +65,14 @@ async def check(event):
         await event.respond("Ошибка при проверке подарков. Возможно, они скрыты.")
         return
 
+    try:
+        gift_list = gifts.gifts  # Проверка наличия поля
+    except AttributeError:
+        await event.respond("Ошибка получения списка подарков.")
+        return
+
     count = 0
-    for g in gifts.gifts:
+    for g in gift_list:
         try:
             title = getattr(g.gift, "title", "").lower()
             if "jack" in title and "knockout" in title:
@@ -81,8 +86,10 @@ async def check(event):
             with open("approved_users.json", "w") as f:
                 json.dump(list(approved_users), f)
         try:
-            r = requests.get(f"https://api.telegram.org/bot{bot_token}/createChatInviteLink",
-                             params={"chat_id": group_id, "member_limit": 1})
+            r = requests.get(
+                f"https://api.telegram.org/bot{bot_token}/createChatInviteLink",
+                params={"chat_id": group_id, "member_limit": 1}
+            )
             invite_link = r.json()["result"]["invite_link"]
             await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")
         except:
