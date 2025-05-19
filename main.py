@@ -61,10 +61,10 @@ async def check(event):
             with open("approved_users.json", "w") as f:
                 json.dump(list(approved_users), f)
         try:
-            r = requests.get(f"https://api.telegram.org/bot{bot_token}/createChatInviteLink",
+            r = requests.get(f"https://api.telegram.org/bot{bot_token}/createChatInviteLink","
                              params={"chat_id": group_id, "member_limit": 1})
             invite_link = r.json()["result"]["invite_link"]
-            await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")
+            await event.respond(f"✅ У тебя есть 6 подарков! Вот ссылка: {invite_link}")"
         except Exception as e:
             print(e)
             await event.respond("✅ Подарки найдены, но не удалось создать ссылку.")
@@ -86,16 +86,16 @@ async def periodic_check():
                     if "jack" in title and "knockout" in title:
                         count += 1
                 if count < 6:
-                    requests.get(f"https://api.telegram.org/bot{bot_token}/banChatMember",
+                    requests.get(f"https://api.telegram.org/bot{bot_token}/banChatMember","
                                  params={"chat_id": group_id, "user_id": user_id})
-                    requests.get(f"https://api.telegram.org/bot{bot_token}/unbanChatMember",
+                    requests.get(f"https://api.telegram.org/bot{bot_token}/unbanChatMember","
                                  params={"chat_id": group_id, "user_id": user_id})
                     approved_users.remove(user_id)
                     with open("approved_users.json", "w") as f:
                         json.dump(list(approved_users), f)
                     await client.send_message(user_id, "🚫 У тебя больше нет нужных подарков, доступ отозван.")
             except Exception as e:
-                print(f"Ошибка проверки пользователя {user_id}: {e}")
+                print(f"Ошибка проверки пользователя {user_id}: {e}")"
         await asyncio.sleep(86400)
 
 client.loop.create_task(periodic_check())
