@@ -1,13 +1,18 @@
 import asyncio
 import os
 import sys
+
 from telethon import TelegramClient
-from telethon.tl.functions.payments import GetUserStarGiftsRequest
+
+from gifts import GetUserStarGiftsRequest
 
 # === Получаем переменные окружения ===
 api_id = os.getenv("API_ID")
 api_hash = os.getenv("API_HASH")
 session_name = os.getenv("SESSION_NAME", "bot_session")
+
+# Ник или телефон пользователя, чьи подарки проверяем
+target = sys.argv[1] if len(sys.argv) > 1 else "me"
 
 # === Проверка ===
 if not api_id or not api_hash:
@@ -24,29 +29,29 @@ except ValueError:
 async def main():
     async with TelegramClient(session_name, api_id, api_hash) as client:
         me = await client.get_me()
-        print(f"👤 Авторизован как {me.first_name} (@{me.username or 'нет username'})")
+        print(
+            f"👤 Авторизован как {me.first_name} (@{me.username or 'нет username'})"
+        )
 
-        # Запрос на получение подарков
+        # Получаем цель и делаем запрос на её подарки
         try:
+            entity = await client.get_input_entity(target)
             result = await client(GetUserStarGiftsRequest(
-                user_id=await client.get_input_entity("me"),
-                offset='',
-                limit=100
+                user_id=entity,
+                offset="",
+                limit=100,
             ))
         except Exception as e:
             print(f"❌ Ошибка при получении подарков: {e}")
             return
 
-        if not result.gifts:
-            print("🙁 У вас нет подарков.")
-            return
+        gifts = getattr(result, "gifts", [])
+        matching = [g for g in gifts if "jack" in g.slug.lower() and "knockout" in g.slug.lower()]
 
-        print(f"🎁 Найдено {len(result.gifts)} подарков:\n")
-        for gift in result.gifts:
-            try:
-                print(f"🎁 {gift.gift.title} — {gift.stars} ⭐")
-            except Exception as e:
-                print("🔍 Не удалось прочитать один из подарков:", e)
+        if len(matching) >= 6:
+            print("✅ У пользователя есть нужные подарки")
+        else:
+            print("❌ Недостаточно подарков")
 
 # === Запуск ===
 if __name__ == "__main__":
